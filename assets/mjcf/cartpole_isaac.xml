@@ -1,61 +1,88 @@
-<mujoco model="cartpole">
+<!--<mujoco model="cartpole">-->
 
-<visual>
-    <headlight ambient=".4 .4 .4" diffuse=".8 .8 .8" specular="0.1 0.1 0.1"/>
-    <map znear=".01"/>
-    <quality shadowsize="2048"/>
-</visual>
+<!--<option timestep="0.01" integrator="RK4">-->
+<!--    <flag contact="disable" energy="enable" gravity="enable"/>-->
+<!--</option>-->
 
-<asset>
-    <texture name="skybox" type="skybox" builtin="gradient" rgb1=".4 .6 .8" rgb2="0 0 0"
-             width="800" height="800" mark="random" markrgb="1 1 1"/>
-</asset>
+<!--<worldbody>-->
+<!--&lt;!&ndash;    <geom name="floor" pos="0 0 -.05" size="4 4 .2" type="plane"/>&ndash;&gt;-->
+<!--&lt;!&ndash;    <geom name="rail1" type="capsule" pos="0  .07 1" zaxis="1 0 0" size="0.02 4" />&ndash;&gt;-->
+<!--&lt;!&ndash;    <geom name="rail2" type="capsule" pos="0 -.07 1" zaxis="1 0 0" size="0.02 4"/>&ndash;&gt;-->
+<!--&lt;!&ndash;    <body name="cart" pos="0 0 1">&ndash;&gt;-->
+<!--&lt;!&ndash;        <joint name="cart_joint" type="slide" limited="false" axis="1 0 0" range="-1.8 1.8" solreflimit=".08 1" damping="5e-4"/>&ndash;&gt;-->
+<!--&lt;!&ndash;        <geom name="cart" type="box" size="0.2 0.15 0.1" mass="1"/>&ndash;&gt;-->
+<!--  <body name="pole">-->
+<!--    <joint name="pole_joint" type="hinge" axis="0 1 0"  damping="2e-6"/>-->
+<!--    <geom type="capsule" fromto="0 0 0 0 0 1" size="0.045" mass=".1"/>-->
+<!--  </body>-->
+<!--&lt;!&ndash;    </body>&ndash;&gt;-->
+<!--</worldbody>-->
 
-<asset>
-    <texture name="grid" type="2d" builtin="checker" rgb1=".1 .2 .3" rgb2=".2 .3 .4" width="300" height="300" mark="edge" markrgb=".2 .3 .4"/>
-    <material name="grid" texture="grid" texrepeat="1 1" texuniform="true" reflectance=".2"/>
-    <material name="self" rgba=".7 .5 .3 1"/>
-    <material name="self_default" rgba=".7 .5 .3 1"/>
-    <material name="self_highlight" rgba="0 .5 .3 1"/>
-    <material name="effector" rgba=".7 .4 .2 1"/>
-    <material name="effector_default" rgba=".7 .4 .2 1"/>
-    <material name="effector_highlight" rgba="0 .5 .3 1"/>
-    <material name="decoration" rgba=".3 .5 .7 1"/>
-    <material name="eye" rgba="0 .2 1 1"/>
-    <material name="target" rgba=".6 .3 .3 1"/>
-    <material name="target_default" rgba=".6 .3 .3 1"/>
-    <material name="target_highlight" rgba=".6 .3 .3 .4"/>
-</asset>
-<option timestep="0.01" integrator="RK4">
-    <flag contact="disable" energy="enable" gravity="enable"/>
-</option>
+<!--<actuator>-->
+<!--    <motor name="pole" joint="pole_joint" gear="10" ctrllimited="true" ctrlrange="-1 1" />-->
+<!--</actuator>-->
+
+<!--&lt;!&ndash;<sensor>&ndash;&gt;-->
+<!--&lt;!&ndash;    <jointpos name="slider" joint="cart_joint"/>&ndash;&gt;-->
+<!--&lt;!&ndash;    <jointpos name="pole" joint="pole_joint"/>&ndash;&gt;-->
+<!--&lt;!&ndash;    <jointvel name="slider_vel" joint="cart_joint"/>&ndash;&gt;-->
+<!--&lt;!&ndash;    <jointvel name="hinge_vel" joint="pole_joint"/>&ndash;&gt;-->
+<!--&lt;!&ndash;</sensor>&ndash;&gt;-->
+<!--</mujoco>-->
 
 
-<worldbody>
-    <light name="light" pos="0 0 6"/>
-    <camera name="fixed" pos="0 -4 1" zaxis="0 -1 0"/>
-    <camera name="lookatcart" mode="targetbody" target="cart" pos="0 -2 2"/>
-    <geom name="floor" pos="0 0 -.05" size="4 4 .2" type="plane" material="grid"/>
-    <geom name="rail1" type="capsule" pos="0  .07 1" zaxis="1 0 0" size="0.02 4" material="decoration" />
-    <geom name="rail2" type="capsule" pos="0 -.07 1" zaxis="1 0 0" size="0.02 4" material="decoration" />
-    <body name="cart" pos="0 0 1">
-        <joint name="cart_joint" type="slide" limited="false" axis="1 0 0" range="-1.8 1.8" solreflimit=".08 1" damping="5e-4"/>
-        <geom name="cart" type="box" size="0.2 0.15 0.1" material="self"  mass="1"/>
-        <body name="pole">
-            <joint name="pole_joint" type="hinge" axis="0 1 0"  damping="2e-6"/>
-            <geom type="capsule" fromto="0 0 0 0 0 1" size="0.045" material="self" mass=".1"/>
+<mujoco model="ant">
+  <custom>
+    <numeric data="0.0 0.0 " name="init_qpos"/>
+  </custom>
+
+  <default>
+    <joint armature="0.01" damping="0.1" limited="true"/>
+    <geom condim="3" density="5.0" friction="1.5 0.1 0.1" margin="0.01" rgba="0.97 0.38 0.06 1"/>
+  </default>
+
+  <compiler inertiafromgeom="true" angle="degree"/>
+
+  <option timestep="0.016" iterations="50" tolerance="1e-10" solver="Newton" jacobian="dense" cone="pyramidal"/>
+
+  <size nconmax="50" njmax="200" nstack="10000"/>
+  <visual>
+      <map force="0.1" zfar="30"/>
+      <rgba haze="0.15 0.25 0.35 1"/>
+      <quality shadowsize="2048"/>
+      <global offwidth="800" offheight="800"/>
+  </visual>
+
+  <asset>
+      <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512" height="512"/>
+      <texture name="texplane" type="2d" builtin="checker" rgb1=".2 .3 .4" rgb2=".1 0.15 0.2" width="512" height="512" mark="cross" markrgb=".8 .8 .8"/>
+      <texture name="texgeom" type="cube" builtin="flat" mark="cross" width="127" height="1278"
+          rgb1="0.8 0.6 0.4" rgb2="0.8 0.6 0.4" markrgb="1 1 1" random="0.01"/>
+
+      <material name="matplane" reflectance="0.3" texture="texplane" texrepeat="1 1" texuniform="true"/>
+      <material name="matgeom" texture="texgeom" texuniform="true" rgba="0.8 0.6 .4 1"/>
+  </asset>
+
+  <worldbody>
+    <geom name="floor" pos="0 0 0" size="0 0 .25" type="plane" material="matplane" condim="3"/>
+
+    <light directional="false" diffuse=".2 .2 .2" specular="0 0 0" pos="0 0 5" dir="0 0 -1" castshadow="false"/>
+    <light mode="targetbodycom" target="torso" directional="false" diffuse=".8 .8 .8" specular="0.3 0.3 0.3" pos="0 0 4.0" dir="0 0 -1"/>
+
+    <body name="cartpoel" pos="0 0 2">
+        <body name="cart" pos="0 0 1">
+          <joint name="cart_joint" type="slide" limited="false" axis="1 0 0" range="-1.8 1.8" solreflimit=".08 1" damping="5e-4"/>
+          <geom name="cart" type="box" size="0.2 0.15 0.1" material="self"  mass="1"/>
+          <body name="pole">
+            <joint name="pole_joint" type="hinge" axis="0 1 0" range="-inf inf" damping="2e-6"/>
+            <geom type="capsule" fromto="0 0 0 0 0 1" size="0.045" mass=".1"/>
+          </body>
         </body>
     </body>
-</worldbody>
 
-<actuator>
-    <motor name="cart" joint="cart_joint" gear="10" ctrllimited="true" ctrlrange="-1 1" />
-</actuator>
+  </worldbody>
 
-<!--<sensor>-->
-<!--    <jointpos name="slider" joint="cart_joint"/>-->
-<!--    <jointpos name="pole" joint="pole_joint"/>-->
-<!--    <jointvel name="slider_vel" joint="cart_joint"/>-->
-<!--    <jointvel name="hinge_vel" joint="pole_joint"/>-->
-<!--</sensor>-->
+  <actuator>
+    <motor ctrllimited="true" ctrlrange="-1.0 1.0" joint="cart_joint" gear="15"/>
+  </actuator>
 </mujoco>

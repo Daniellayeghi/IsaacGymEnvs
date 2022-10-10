@@ -32,6 +32,8 @@ import torch
 
 from isaacgym import gymutil, gymtorch, gymapi
 from .base.vec_task import VecTask
+from isaacgymenvs.utils.torch_jit_utils import *
+
 
 class CartpoleMujoco(VecTask):
 
@@ -50,12 +52,12 @@ class CartpoleMujoco(VecTask):
 
         dof_state_tensor = self.gym.acquire_dof_state_tensor(self.sim)
         self.dof_state = gymtorch.wrap_tensor(dof_state_tensor)
-        print(self.dof_state)
 
         # Assuming self.num_dof is the sum of all each dof for all robots
         # Each cartpole in this case however has 2 dofs hence the 2
         self.dof_pos = self.dof_state.view(self.num_envs, self.num_dof, 2)[..., 0]
         self.dof_vel = self.dof_state.view(self.num_envs, self.num_dof, 2)[..., 1]
+        print("here")
 
     def create_sim(self):
         # set the up axis to be z-up given that assets are y-up by default
@@ -76,7 +78,7 @@ class CartpoleMujoco(VecTask):
         upper = gymapi.Vec3(0.5 * spacing, spacing, spacing)
 
         asset_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../assets")
-        asset_file = "urdf/cartpole_mujoco.urdf"
+        asset_file = "mjcf/cartpole_isaac.xml"
 
         if "asset" in self.cfg["env"]:
             asset_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), self.cfg["env"]["asset"].get("assetRoot", asset_root))
@@ -88,8 +90,14 @@ class CartpoleMujoco(VecTask):
 
         asset_options = gymapi.AssetOptions()
         asset_options.fix_base_link = True
+        asset_options.default_dof_drive_mode = gymapi.DOF_MODE_NONE
         cartpole_asset = self.gym.load_asset(self.sim, asset_root, asset_file, asset_options)
         self.num_dof = self.gym.get_asset_dof_count(cartpole_asset)
+
+        # Note - for this asset we are loading the actuator info from the MJCF
+        actuator_props = self.gym.get_asset_actuator_properties(cartpole_asset)
+        motor_efforts = [prop.motor_effort for prop in actuator_props]
+        self.joint_gears = to_torch(motor_efforts, device=self.device)
 
         pose = gymapi.Transform()
         if self.up_axis == 'z':
