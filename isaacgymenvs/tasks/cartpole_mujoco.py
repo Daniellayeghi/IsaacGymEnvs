@@ -129,6 +129,7 @@ class CartpoleMujoco(VecTask):
             self.envs.append(env_ptr)
             self.cartpole_handles.append(cartpole_handle)
 
+
     def compute_reward(self):
         # retrieve environment observations from buffer
         pole_angle = self.obs_buf[:, 2]

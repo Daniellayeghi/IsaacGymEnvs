@@ -1,9 +1,9 @@
 <mujoco model="finger">
   <custom>
-    <numeric data="90.0 90.0 0.0" name="init_qpos"/>
+    <numeric data="90.0 90.0" name="init_qpos"/>
   </custom>
 
-  <compiler inertiafromgeom="true" angle="degree"/>
+  <compiler inertiafromgeom="true"/>
 
   <option timestep="0.01" collision="all"/>
 
@@ -14,7 +14,7 @@
         <camera name="cam1" pos="0 -1 .4" xyaxes="1 0 0 0 0 1" />
 
         <body name="finger">
-            <body name="proximal" pos="-.2 0 -0.01">
+            <body name="proximal" pos="0 0 -0.01">
                 <geom name="proximal_decoration" type="cylinder" fromto="0 -.033 0 0 .033 0" size=".034" solimp="0 0.9 0.01" solref=".02 1" condim="1"/>
                 <joint name="proximal" type="hinge" axis="0 -1 0" range="-150 -80" ref="-90" damping="0.05" limited="false" />
                 <geom name="proximal" type="capsule" size=".03" fromto="0 0 0 0 0 -.17" solimp="0 0.9 0.01" solref=".02 1" condim="1"/>
@@ -24,20 +24,11 @@
                     <geom name="fingertip" type="capsule" size=".03" fromto="0 0 -.13 0 0 -.161" solimp="0 0.9 0.01" solref=".02 1" condim="1"/>
                 </body>
             </body>
-
-            <body name="spinner" pos="-.2 0 -.4">
-                <joint name="spinner_joint" type="hinge" axis="0 -1 0" range="-50 50" frictionloss=".01" damping=".35" limited="false" />
-                <geom name="cap1" type="capsule" size=".04 .09" pos=".02 0 0" solimp="0 0.9 0.01" solref=".02 1" condim="1"/>
-                <geom name="cap2" type="capsule" size=".04 .09" pos="-.02 0 0" solimp="0 0.9 0.01" solref=".02 1" condim="1"/>
-                <geom name="spinner_decoration" type="cylinder" fromto="0 -.045 0 0 .045 0" size=".02" solimp="0 0.9 0.01" solref=".02 1" condim="1"/>
-            </body>
         </body>
-
     </worldbody>
 
     <actuator>
         <motor name="proximal" joint="proximal" gear="3" ctrllimited="true" ctrlrange="-1 1"/>
         <motor name="distal" joint="distal" gear="1.5" ctrllimited="true" ctrlrange="-1 1"/>
     </actuator>
-
 </mujoco>

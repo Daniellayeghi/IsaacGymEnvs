@@ -1,39 +1,6 @@
-<!--<mujoco model="cartpole">-->
-
-<!--<option timestep="0.01" integrator="RK4">-->
-<!--    <flag contact="disable" energy="enable" gravity="enable"/>-->
-<!--</option>-->
-
-<!--<worldbody>-->
-<!--&lt;!&ndash;    <geom name="floor" pos="0 0 -.05" size="4 4 .2" type="plane"/>&ndash;&gt;-->
-<!--&lt;!&ndash;    <geom name="rail1" type="capsule" pos="0  .07 1" zaxis="1 0 0" size="0.02 4" />&ndash;&gt;-->
-<!--&lt;!&ndash;    <geom name="rail2" type="capsule" pos="0 -.07 1" zaxis="1 0 0" size="0.02 4"/>&ndash;&gt;-->
-<!--&lt;!&ndash;    <body name="cart" pos="0 0 1">&ndash;&gt;-->
-<!--&lt;!&ndash;        <joint name="cart_joint" type="slide" limited="false" axis="1 0 0" range="-1.8 1.8" solreflimit=".08 1" damping="5e-4"/>&ndash;&gt;-->
-<!--&lt;!&ndash;        <geom name="cart" type="box" size="0.2 0.15 0.1" mass="1"/>&ndash;&gt;-->
-<!--  <body name="pole">-->
-<!--    <joint name="pole_joint" type="hinge" axis="0 1 0"  damping="2e-6"/>-->
-<!--    <geom type="capsule" fromto="0 0 0 0 0 1" size="0.045" mass=".1"/>-->
-<!--  </body>-->
-<!--&lt;!&ndash;    </body>&ndash;&gt;-->
-<!--</worldbody>-->
-
-<!--<actuator>-->
-<!--    <motor name="pole" joint="pole_joint" gear="10" ctrllimited="true" ctrlrange="-1 1" />-->
-<!--</actuator>-->
-
-<!--&lt;!&ndash;<sensor>&ndash;&gt;-->
-<!--&lt;!&ndash;    <jointpos name="slider" joint="cart_joint"/>&ndash;&gt;-->
-<!--&lt;!&ndash;    <jointpos name="pole" joint="pole_joint"/>&ndash;&gt;-->
-<!--&lt;!&ndash;    <jointvel name="slider_vel" joint="cart_joint"/>&ndash;&gt;-->
-<!--&lt;!&ndash;    <jointvel name="hinge_vel" joint="pole_joint"/>&ndash;&gt;-->
-<!--&lt;!&ndash;</sensor>&ndash;&gt;-->
-<!--</mujoco>-->
-
-
-<mujoco model="ant">
+<mujoco model="Cartpole">
   <custom>
-    <numeric data="0.0 0.0 " name="init_qpos"/>
+    <numeric data="0.0 180" name="init_qpos"/>
   </custom>
 
   <default>
@@ -43,15 +10,7 @@
 
   <compiler inertiafromgeom="true" angle="degree"/>
 
-  <option timestep="0.016" iterations="50" tolerance="1e-10" solver="Newton" jacobian="dense" cone="pyramidal"/>
-
-  <size nconmax="50" njmax="200" nstack="10000"/>
-  <visual>
-      <map force="0.1" zfar="30"/>
-      <rgba haze="0.15 0.25 0.35 1"/>
-      <quality shadowsize="2048"/>
-      <global offwidth="800" offheight="800"/>
-  </visual>
+  <option timestep="0.01"/>
 
   <asset>
       <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512" height="512"/>
@@ -83,6 +42,6 @@
   </worldbody>
 
   <actuator>
-    <motor ctrllimited="true" ctrlrange="-1.0 1.0" joint="cart_joint" gear="15"/>
+    <motor ctrllimited="true" ctrlrange="-1.0 1.0" joint="cart_joint" gear="100"/>
   </actuator>
 </mujoco>
