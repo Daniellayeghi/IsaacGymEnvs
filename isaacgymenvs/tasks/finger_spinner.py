@@ -55,20 +55,24 @@ class FingerSpinnerMujoco(VecTask):
 
         dof_state_tensor = self.gym.acquire_dof_state_tensor(self.sim)
         self.dof_state = gymtorch.wrap_tensor(dof_state_tensor)
+        self.full_state = self.finger_num_dof + self.spinner_num_dof
+        self.actions_tensor = torch.zeros(self.num_envs * self.full_state, device=self.device, dtype=torch.float)
+
+        rigid_body_state = self.gym.acquire_rigid_body_state_tensor(self.sim)
+        self.rigid_body_state = gymtorch.wrap_tensor(rigid_body_state)
 
         # Assuming self.num_dof is the sum of all each dof for all robots
         # Each FS in this case however has 2 dofs hence the 4
-        self.dof_pos = self.dof_state.view(self.num_envs, self.finger_num_dof + self.spinner_num_dof, 2)[..., 0]
-        self.dof_vel = self.dof_state.view(self.num_envs, self.finger_num_dof + self.spinner_num_dof, 2)[..., 1]
-
-        positions = 10 * torch.rand((self.num_envs, self.finger_num_dof + self.spinner_num_dof), device=self.device)
-        self.dof_pos[:] = positions[:]
+        self.dof_pos = self.dof_state.view(self.num_envs, self.full_state, 2)[..., 0]
+        self.dof_vel = self.dof_state.view(self.num_envs, self.full_state, 2)[..., 1]
+        self.dof_vel[:] = 0
+        self.dof_pos[:, 0] = torch.rand((self.num_envs), device=self.device)
+        self.dof_pos[:, 1] = torch.rand((self.num_envs), device=self.device)
+        self.dof_pos[:, 2] = 2.57 * torch.rand((self.num_envs), device=self.device)
 
         env_ids_int32 = torch.arange(0, self.num_envs, device=self.device).to(dtype=torch.int32)
-        self.gym.set_dof_state_tensor_indexed(self.sim,
-                                              gymtorch.unwrap_tensor(self.dof_state),
-                                              gymtorch.unwrap_tensor(env_ids_int32), len(env_ids_int32))
-
+        self.gym.set_dof_state_tensor(self.sim, gymtorch.unwrap_tensor(self.dof_state))
+        self.time = 1
 
     def create_sim(self):
         # set the up axis to be z-up given that assets are y-up by default
@@ -87,32 +91,6 @@ class FingerSpinnerMujoco(VecTask):
         # define plane on which environments are initialized
         lower = gymapi.Vec3(0.5 * -spacing, -spacing, 0.0) if self.up_axis == 'z' else gymapi.Vec3(0.5 * -spacing, 0.0, -spacing)
         upper = gymapi.Vec3(0.5 * spacing, spacing, spacing)
-
-        asset_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../assets")
-        spinner_asset_file = "mjcf/spinner.xml"
-
-        if "asset" in self.cfg["env"]:
-            asset_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), self.cfg["env"]["asset"].get("assetRoot", asset_root))
-            spinner_asset_file = self.cfg["env"]["asset"].get("assetFileName", spinner_asset_file)
-
-        asset_path = os.path.join(asset_root, spinner_asset_file)
-        asset_root = os.path.dirname(asset_path)
-        spinner_asset_file = os.path.basename(asset_path)
-
-        asset_options = gymapi.AssetOptions()
-        asset_options.fix_base_link = True
-        asset_options.default_dof_drive_mode = gymapi.DOF_MODE_NONE
-        spinner_asset = self.gym.load_asset(self.sim, asset_root, spinner_asset_file, asset_options)
-        self.spinner_num_dof = self.gym.get_asset_dof_count(spinner_asset)
-
-        pose = gymapi.Transform()
-        if self.up_axis == 'z':
-            pose.p.z = 2.0
-            # asset is rotated z-up by default, no additional rotations needed
-            pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
-        else:
-            pose.p.y = 2.0
-            pose.r = gymapi.Quat(-np.sqrt(2)/2, 0.0, 0.0, np.sqrt(2)/2)
 
         asset_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../assets")
         finger_asset_file = "mjcf/finger.xml"
@@ -145,6 +123,32 @@ class FingerSpinnerMujoco(VecTask):
             pose.p.y = 2.0
             pose.r = gymapi.Quat(-np.sqrt(2)/2, 0.0, 0.0, np.sqrt(2)/2)
 
+        asset_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../assets")
+        spinner_asset_file = "mjcf/spinner.xml"
+
+        if "asset" in self.cfg["env"]:
+            asset_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), self.cfg["env"]["asset"].get("assetRoot", asset_root))
+            spinner_asset_file = self.cfg["env"]["asset"].get("assetFileName", spinner_asset_file)
+
+        asset_path = os.path.join(asset_root, spinner_asset_file)
+        asset_root = os.path.dirname(asset_path)
+        spinner_asset_file = os.path.basename(asset_path)
+
+        asset_options = gymapi.AssetOptions()
+        asset_options.fix_base_link = True
+        asset_options.default_dof_drive_mode = gymapi.DOF_MODE_NONE
+        spinner_asset = self.gym.load_asset(self.sim, asset_root, spinner_asset_file, asset_options)
+        self.spinner_num_dof = self.gym.get_asset_dof_count(spinner_asset)
+
+        pose = gymapi.Transform()
+        if self.up_axis == 'z':
+            pose.p.z = 2.0
+            # asset is rotated z-up by default, no additional rotations needed
+            pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
+        else:
+            pose.p.y = 2.0
+            pose.r = gymapi.Quat(-np.sqrt(2)/2, 0.0, 0.0, np.sqrt(2)/2)
+
         self.finger_handle = []
         self.spinner_handle = []
         self.envs = []
@@ -153,8 +157,8 @@ class FingerSpinnerMujoco(VecTask):
             env_ptr = self.gym.create_env(
                 self.sim, lower, upper, num_per_row
             )
-            finger_handle = self.gym.create_actor(env_ptr, finger_asset, pose, "finger_isaac", i, 1, 0)
-            spinner_handle = self.gym.create_actor(env_ptr, spinner_asset, pose, "spinner_isaac", i, 1, 0)
+            finger_handle = self.gym.create_actor(env_ptr, finger_asset, pose, "finger_isaac", i, -1, 0)
+            spinner_handle = self.gym.create_actor(env_ptr, spinner_asset, pose, "spinner_isaac", i, -1, 0)
 
             # Actuation level
             finger_dof_prop = self.gym.get_actor_dof_properties(env_ptr, finger_handle)
@@ -175,14 +179,16 @@ class FingerSpinnerMujoco(VecTask):
         # retrieve environment observations from buffer
 
         finger_1_theta = self.obs_buf[:, 0]
-        finger_2_theta = self.obs_buf[:, 1]
-        spinner_theta = self.obs_buf[:, 2]
-        finger_1_dtheta = self.obs_buf[:, 3]
-        finger_2_dtheta = self.obs_buf[:, 4]
+        finger_1_dtheta = self.obs_buf[:, 1]
+        finger_2_theta = self.obs_buf[:, 2]
+        finger_2_dtheta = self.obs_buf[:, 3]
+        spinner_theta = self.obs_buf[:, 4]
         spinner_dtheta = self.obs_buf[:, 5]
+        action_1 = self.actions_tensor[:, 0]
+        action_2 = self.actions_tensor[:, 1]
 
         self.rew_buf[:], self.reset_buf[:] = conpute_finger_spinner_reward(
-            finger_1_theta, finger_2_theta, spinner_theta, finger_1_dtheta, finger_2_dtheta, spinner_dtheta,
+            finger_1_theta, finger_2_theta, spinner_theta, finger_1_dtheta, finger_2_dtheta, spinner_dtheta, action_1, action_2,
             self.reset_dist, self.reset_buf, self.progress_buf, self.max_episode_length
         )
 
@@ -221,6 +227,7 @@ class FingerSpinnerMujoco(VecTask):
         actions_tensor = torch.zeros(self.num_envs * full_state, device=self.device, dtype=torch.float)
         actions_tensor[0::full_state] = actions[:, 0].to(self.device).squeeze() * self.max_push_effort
         actions_tensor[1::full_state] = actions[:, 1].to(self.device).squeeze() * self.max_push_effort
+        self.actions_tensor = actions.clone().to(self.device)
         forces = gymtorch.unwrap_tensor(actions_tensor)
         self.gym.set_dof_actuation_force_tensor(self.sim, forces)
 
@@ -241,19 +248,14 @@ class FingerSpinnerMujoco(VecTask):
 
 @torch.jit.script
 def conpute_finger_spinner_reward(finger_1_theta, finger_2_theta, spinner_theta, finger_1_dtheta, finger_2_dtheta,
-                                  spinner_d_theta, reset_dist, reset_buf, progress_buf, max_episode_length):
+                                  spinner_d_theta, action_1, action_2, reset_dist, reset_buf, progress_buf, max_episode_length):
 
-    # type: (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, float, Tensor, Tensor, float) -> Tuple[Tensor, Tensor]
+    # type: (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, float, Tensor, Tensor, float) -> Tuple[Tensor, Tensor]
     # reward is combo of angle deviated from upright, velocity of cart, and velocity of pole moving
-    reward = 1.0 - finger_1_theta * finger_1_theta
-    reset = torch.where(torch.abs(finger_2_theta) > reset_dist, torch.ones_like(reset_buf), reset_buf)
+    
+    reward_pos = torch.exp(-1 * spinner_theta * spinner_theta) * 10000
+    reward_vel = torch.exp(-1 * spinner_d_theta * spinner_d_theta) * 10
+    reg = torch.exp(-1 * (action_1 * action_1 + action_2 * action_2)) * .001
     reset = torch.zeros_like(reset_buf)
-    # # adjust reward for reset agents
-    # reward = torch.where(torch.abs(cart_pos) > reset_dist, torch.ones_like(reward) * -2.0, reward)
-    # reward = torch.where(torch.abs(pole_angle) > np.pi / 2, torch.ones_like(reward) * -2.0, reward)
-    #
-    # reset = torch.where(torch.abs(cart_pos) > reset_dist, torch.ones_like(reset_buf), reset_buf)
-    # reset = torch.where(torch.abs(pole_angle) > np.pi / 2, torch.ones_like(reset_buf), reset)
-    # reset = torch.where(progress_buf >= max_episode_length - 1, torch.ones_like(reset_buf), reset)
-
+    reward = reg + reward_pos + reward_vel
     return reward, reset

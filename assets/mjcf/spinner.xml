@@ -14,7 +14,7 @@
         <camera name="cam1" pos="0 -1 .4" xyaxes="1 0 0 0 0 1" />
 
         <body name="spinner_root">
-            <body name="spinner" pos="0 0 -.4">
+            <body name="spinner" pos="0 0 -.3">
                 <joint name="spinner_joint" type="hinge" axis="0 -1 0" range="-50 50" frictionloss=".01" damping=".35" limited="false" />
                 <geom name="cap1" type="capsule" size=".04 .09" pos=".02 0 0" solimp="0 0.9 0.01" solref=".02 1" condim="1"/>
                 <geom name="cap2" type="capsule" size=".04 .09" pos="-.02 0 0" solimp="0 0.9 0.01" solref=".02 1" condim="1"/>
