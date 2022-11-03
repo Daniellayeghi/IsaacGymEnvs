@@ -3,7 +3,7 @@ name: FingerSpinnerMujoco
 physics_engine: ${..physics_engine}
 
 env:
-  numEnvs: ${resolve_default:128,${...num_envs}}
+  numEnvs: ${resolve_default:512,${...num_envs}}
   envSpacing: 4.0
   resetDist: 3.0
   maxEffort: 1.0

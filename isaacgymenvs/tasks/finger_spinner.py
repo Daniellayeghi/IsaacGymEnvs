@@ -21,7 +21,7 @@
 # DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
 # FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
 # DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# SERVICES; LOSSGPS/GPRS/GSM Shield, SIM808, Arduino Development Boards OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
 # CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
@@ -45,7 +45,7 @@ class FingerSpinnerMujoco(VecTask):
         self.max_push_effort = self.cfg["env"]["maxEffort"]
         self.max_episode_length = 500
 
-        self.cfg["env"]["numObservations"] = 6
+        self.cfg["env"]["numObservations"] = 6 + 9 + 1  # dof + rb pos + rb dist
         self.cfg["env"]["numActions"] = 2
 
         super().__init__(
@@ -59,7 +59,7 @@ class FingerSpinnerMujoco(VecTask):
         self.actions_tensor = torch.zeros(self.num_envs * self.full_state, device=self.device, dtype=torch.float)
 
         rigid_body_state = self.gym.acquire_rigid_body_state_tensor(self.sim)
-        self.rigid_body_state = gymtorch.wrap_tensor(rigid_body_state)
+        self.rigid_body_state = gymtorch.wrap_tensor(rigid_body_state).view(self.num_envs, -1, 13)
 
         # Assuming self.num_dof is the sum of all each dof for all robots
         # Each FS in this case however has 2 dofs hence the 4
@@ -68,11 +68,13 @@ class FingerSpinnerMujoco(VecTask):
         self.dof_vel[:] = 0
         self.dof_pos[:, 0] = torch.rand((self.num_envs), device=self.device)
         self.dof_pos[:, 1] = torch.rand((self.num_envs), device=self.device)
-        self.dof_pos[:, 2] = 2.57 * torch.rand((self.num_envs), device=self.device)
+        self.dof_pos[:, 2] = 1.3 * torch.ones((self.num_envs), device=self.device)
 
         env_ids_int32 = torch.arange(0, self.num_envs, device=self.device).to(dtype=torch.int32)
         self.gym.set_dof_state_tensor(self.sim, gymtorch.unwrap_tensor(self.dof_state))
         self.time = 1
+
+        self.proximal_id, self.distal_id, self.spinner_id = 1, 2, 4
 
     def create_sim(self):
         # set the up axis to be z-up given that assets are y-up by default
@@ -186,10 +188,12 @@ class FingerSpinnerMujoco(VecTask):
         spinner_dtheta = self.obs_buf[:, 5]
         action_1 = self.actions_tensor[:, 0]
         action_2 = self.actions_tensor[:, 1]
+        distal_spinner_dist = self.obs_buf[:, 15]
 
         self.rew_buf[:], self.reset_buf[:] = conpute_finger_spinner_reward(
-            finger_1_theta, finger_2_theta, spinner_theta, finger_1_dtheta, finger_2_dtheta, spinner_dtheta, action_1, action_2,
-            self.reset_dist, self.reset_buf, self.progress_buf, self.max_episode_length
+            finger_1_theta, finger_2_theta, spinner_theta, finger_1_dtheta,
+            finger_2_dtheta, spinner_dtheta, action_1, action_2, distal_spinner_dist,
+            self.reset_buf, self.progress_buf, self.max_episode_length
         )
 
     def compute_observations(self, env_ids=None):
@@ -197,36 +201,46 @@ class FingerSpinnerMujoco(VecTask):
             env_ids = np.arange(self.num_envs)
 
         self.gym.refresh_dof_state_tensor(self.sim)
-
         self.obs_buf[env_ids, 0] = self.dof_pos[env_ids, 0].squeeze()
         self.obs_buf[env_ids, 1] = self.dof_vel[env_ids, 0].squeeze()
         self.obs_buf[env_ids, 2] = self.dof_pos[env_ids, 1].squeeze()
         self.obs_buf[env_ids, 3] = self.dof_vel[env_ids, 1].squeeze()
         self.obs_buf[env_ids, 4] = self.dof_pos[env_ids, 2].squeeze()
         self.obs_buf[env_ids, 5] = self.dof_vel[env_ids, 2].squeeze()
+        self.obs_buf[env_ids, 6:9] = self.rigid_body_state[env_ids, self.proximal_id, 0:3].squeeze() #proximal pos
+        self.obs_buf[env_ids, 9:12] = self.rigid_body_state[env_ids, self.distal_id, 0:3].squeeze() #distal pos
+        self.obs_buf[env_ids, 12:15] = self.rigid_body_state[env_ids, self.spinner_id, 0:3].squeeze() #spinner pos
+
+        self.obs_buf[env_ids, 15] = torch.cdist(
+            self.rigid_body_state[env_ids, self.spinner_id, 0:3].view(len(env_ids), -1, 3),
+            self.rigid_body_state[env_ids, self.distal_id, 0:3].view(len(env_ids), -1, 3)
+        ).squeeze()
+
         return self.obs_buf
 
     def reset_idx(self, env_ids):
-        pass
-        # positions = 0.2 * (torch.rand((len(env_ids), self.finger_num_dof), device=self.device) - 0.5)
-        # velocities = 0.5 * (torch.rand((len(env_ids), self.finger_num_dof), device=self.device) - 0.5)
-        #
-        # self.dof_pos[env_ids, :] = positions[:]
-        # self.dof_vel[env_ids, :] = velocities[:]
-        #
-        # env_ids_int32 = env_ids.to(dtype=torch.int32)
-        # self.gym.set_dof_state_tensor_indexed(self.sim,
-        #                                       gymtorch.unwrap_tensor(self.dof_state),
-        #                                       gymtorch.unwrap_tensor(env_ids_int32), len(env_ids_int32))
-        #
-        # self.reset_buf[env_ids] = 0
-        # self.progress_buf[env_ids] = 0
+
+        self.dof_pos[env_ids, 0] = torch.rand(len(env_ids), device=self.device)
+        self.dof_pos[env_ids, 1] = torch.rand(len(env_ids), device=self.device)
+        self.dof_pos[env_ids, 2] = 1.3 * torch.ones(len(env_ids), device=self.device)
+
+        env_ids_int32 = env_ids.to(dtype=torch.int32)
+
+        self.gym.set_dof_state_tensor_indexed(
+            self.sim,
+            gymtorch.unwrap_tensor(self.dof_state),
+            gymtorch.unwrap_tensor(env_ids_int32),
+            len(env_ids_int32)
+        )
+
+        self.reset_buf[env_ids] = 0
+        self.progress_buf[env_ids] = 0
 
     def pre_physics_step(self, actions):
         full_state = self.finger_num_dof + self.spinner_num_dof
         actions_tensor = torch.zeros(self.num_envs * full_state, device=self.device, dtype=torch.float)
-        actions_tensor[0::full_state] = actions[:, 0].to(self.device).squeeze() * self.max_push_effort
-        actions_tensor[1::full_state] = actions[:, 1].to(self.device).squeeze() * self.max_push_effort
+        actions_tensor[0::full_state] = actions[:, 0].to(self.device).squeeze() * self.max_push_effort * self.joint_gears[0]
+        actions_tensor[1::full_state] = actions[:, 1].to(self.device).squeeze() * self.max_push_effort * self.joint_gears[1]
         self.actions_tensor = actions.clone().to(self.device)
         forces = gymtorch.unwrap_tensor(actions_tensor)
         self.gym.set_dof_actuation_force_tensor(self.sim, forces)
@@ -248,14 +262,20 @@ class FingerSpinnerMujoco(VecTask):
 
 @torch.jit.script
 def conpute_finger_spinner_reward(finger_1_theta, finger_2_theta, spinner_theta, finger_1_dtheta, finger_2_dtheta,
-                                  spinner_d_theta, action_1, action_2, reset_dist, reset_buf, progress_buf, max_episode_length):
+                                  spinner_d_theta, action_1, action_2, distal_spinner_dist, reset_buf, progress_buf, max_episode_length):
 
-    # type: (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, float, Tensor, Tensor, float) -> Tuple[Tensor, Tensor]
+    # type: (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, float) -> Tuple[Tensor, Tensor]
     # reward is combo of angle deviated from upright, velocity of cart, and velocity of pole moving
-    
-    reward_pos = torch.exp(-1 * spinner_theta * spinner_theta) * 10000
-    reward_vel = torch.exp(-1 * spinner_d_theta * spinner_d_theta) * 10
-    reg = torch.exp(-1 * (action_1 * action_1 + action_2 * action_2)) * .001
-    reset = torch.zeros_like(reset_buf)
-    reward = reg + reward_pos + reward_vel
-    return reward, reset
+
+    reward_pos = -1 * spinner_theta ** 2 * 1000
+    reward_dist = -1 * distal_spinner_dist ** 2 * 100 * -(reward_pos) * 0.01
+    reward_vel = -1 * spinner_d_theta ** 2 * 10
+    reg = -1 * (action_1 ** 2 + action_2 ** 2) * 50
+    # print(f"dist **2 {distal_spinner_dist ** 2}")
+    # print(f"spinner_pos {spinner_theta}, dist {distal_spinner_dist}\n")
+    # print(f"R_dist {reward_dist}, R_pos {reward_pos}, R_vel {reward_vel}, R_reg {reg}\n")
+    reward = reg + reward_pos + reward_dist + reward_vel
+    reset_buf = torch.where(torch.abs(spinner_theta[:]) < 0.01, torch.ones_like(reset_buf), reset_buf)
+    reset_buf = torch.where(progress_buf >= max_episode_length - 1, torch.ones_like(reset_buf), reset_buf)
+
+    return reward, reset_buf
