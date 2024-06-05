@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2022, NVIDIA Corporation
+# Copyright (c) 2021-2023, NVIDIA Corporation
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -38,7 +38,8 @@ import omegaconf
 import os
 import torch
 
-from isaacgym import gymapi, gymtorch, torch_utils
+from isaacgym import gymapi, gymtorch
+from isaacgymenvs.utils import torch_jit_utils as torch_utils
 import isaacgymenvs.tasks.factory.factory_control as fc
 from isaacgymenvs.tasks.factory.factory_env_nut_bolt import FactoryEnvNutBolt
 from isaacgymenvs.tasks.factory.factory_schema_class_task import FactoryABCTask
@@ -211,7 +212,7 @@ class FactoryTaskNutBoltPlace(FactoryEnvNutBolt, FactoryABCTask):
                                                 do_scale=False)
             self.gym.simulate(self.sim)
             self.render()
-        self.enable_gravity(gravity_mag=self.cfg_base.sim.gravity_mag)
+        self.enable_gravity(gravity_mag=abs(self.cfg_base.sim.gravity[2]))
 
         self._randomize_gripper_pose(env_ids, sim_steps=self.cfg_task.env.num_gripper_move_sim_steps)
 
